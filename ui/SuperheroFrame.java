@@ -5,8 +5,10 @@ import java.awt.Container;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
@@ -29,7 +31,6 @@ import model.Ville;
 import services.Utils;
 
 public class SuperheroFrame extends Fenetre implements ActionListener {
-	
 	SuperHero superhero;
 	List<StatusIncident> lastFiveIncidentEnAttente = new ArrayList<>();
 	List<Maitrise> maitrise = new ArrayList<>();
@@ -38,6 +39,7 @@ public class SuperheroFrame extends Fenetre implements ActionListener {
 	int nbMaitrise2 = 0;
 	int nbMaitrise3 = 0;
 	Container container = getContentPane();
+	
 	JLabel enAttente = new JLabel("Incident en attente");
 	JButton acutaliser = new JButton("Actualiser");
 	JLabel enAttente1 = new JLabel("");
@@ -67,15 +69,19 @@ public class SuperheroFrame extends Fenetre implements ActionListener {
 	JLabel nbIncidentMaitrise1 = new JLabel("");
 	JLabel nbIncidentMaitrise2 = new JLabel("");
 	JLabel nbIncidentMaitrise3 = new JLabel("");
+	JButton logout = new JButton("Logout");
+	ImageIcon gif = new ImageIcon("spinnn.gif");
+    JLabel loading = new JLabel();
+	
 
 	public SuperheroFrame(SuperHero superhero) {
 		super(superhero.getNom());
 		this.superhero = superhero;
-		this.setVisible(true);
+		this.setVisible(false);
 		this.setBounds(10, 10, 370, 600);
 		this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     	this.setResizable(false);
-    	dothespin();
+    	
     	setLayoutManager();
         setLocationAndSize();
         addComponentsToContainer();
@@ -86,12 +92,8 @@ public class SuperheroFrame extends Fenetre implements ActionListener {
         listIncidentEnAttente();
         checkIncidentEnCour();
         setLabels();
+        this.setVisible(true);
 	}
-	
-	public void dothespin() {
-		
-	}
-	
 	
 	
 	public void setLayoutManager() {
@@ -128,6 +130,9 @@ public class SuperheroFrame extends Fenetre implements ActionListener {
 		nbIncidentMaitrise1.setBounds(150, 450, 100, 30);
 		nbIncidentMaitrise2.setBounds(150, 480, 100, 30);
 		nbIncidentMaitrise3.setBounds(150, 510, 100, 30);
+		logout.setBounds(200, 510, 100, 30);
+		loading.setIcon(gif);
+		loading.setBounds(135, 100, 150, 150);
     }
 	
 	 public void addComponentsToContainer() {
@@ -160,6 +165,9 @@ public class SuperheroFrame extends Fenetre implements ActionListener {
 	        container.add(nbIncidentMaitrise1);
 	        container.add(nbIncidentMaitrise2);
 	        container.add(nbIncidentMaitrise3);
+	        container.add(logout);
+	        container.add(loading);
+	        
 	 }
 	 
 	 public void addActionEvent() {
@@ -170,6 +178,7 @@ public class SuperheroFrame extends Fenetre implements ActionListener {
 		 btnEnAttente5.addActionListener(this);
 		 termier.addActionListener(this);
 		 acutaliser.addActionListener(this);
+		 logout.addActionListener(this);
 	    }
 	 
 	 public void listMaitrise() {
@@ -244,6 +253,7 @@ public class SuperheroFrame extends Fenetre implements ActionListener {
 	 }
 	 
 	 public void setLabels() {
+		 
 		 VilleDao bddVille = new VilleDao();
 		 IncidentDao bddIncident = new IncidentDao();
 		 int nbIncidentEnCour = lastFiveIncidentEnAttente.size();
@@ -427,6 +437,47 @@ public class SuperheroFrame extends Fenetre implements ActionListener {
 		default:
 			throw new IllegalArgumentException("Unexpected value: " + this.maitrise.size());
 		}
+		loading.setVisible(false);
+	 }
+	 public void takeIncidentOutThread(int index) {
+		StatusIncidentDao bddIncident = new StatusIncidentDao();
+		this.aGerer = this.lastFiveIncidentEnAttente.get(index);
+		bddIncident.update(aGerer, superhero, "En cour");
+		
+	 }
+	 
+	 public void afterLoading() {
+		 this.listIncidentEnAttente();
+		 this.checkIncidentEnCour();
+		 this.checkNbIncidentMaitrise();
+		 this.setLabels();
+	 }
+	 
+	 public void loadingSpinnerOn() {
+		 enAttente1.setVisible(false);
+			enAttenteVille1.setVisible(false);
+			btnEnAttente1.setVisible(false);
+			enAttente2.setVisible(false);
+			enAttenteVille2.setVisible(false);
+			btnEnAttente2.setVisible(false);
+			enAttente3.setVisible(false);
+			enAttenteVille3.setVisible(false);
+			btnEnAttente3.setVisible(false);
+			enAttente4.setVisible(false);
+			enAttenteVille4.setVisible(false);
+			btnEnAttente4.setVisible(false);
+			enAttente5.setVisible(false);
+			enAttenteVille5.setVisible(false);
+			btnEnAttente5.setVisible(false);
+	 }
+	 
+	 public void incidentTermine() {
+		StatusIncidentDao bddIncident = new StatusIncidentDao();
+		java.util.Date dt = new java.util.Date();
+		java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		String currentTime = sdf.format(dt);
+		bddIncident.update(aGerer, "Résolu", currentTime);
+		this.aGerer = null;
 	 }
 
 	@Override
@@ -437,59 +488,146 @@ public class SuperheroFrame extends Fenetre implements ActionListener {
 				JOptionPane.showMessageDialog(this, "Incident deja en cour terminez le !");
 			}
 			else {
-				this.aGerer = this.lastFiveIncidentEnAttente.get(0);
-				bddIncident.update(aGerer, superhero, "En cour");
-				this.listIncidentEnAttente();
-				this.checkIncidentEnCour();
-				this.setLabels();
+				loading.setVisible(true);
+				Thread runningSim = new Thread() {
+		             public void run() {
+		             	try {
+		             		takeIncidentOutThread(0);
+		             	}
+		             	finally {
+		             		afterLoading();
+						}
+		             }
+				 };
+				 runningSim.start();
+				 loadingSpinnerOn();
 			}
 		}
 		if(e.getSource() == btnEnAttente2) {
-			this.aGerer = this.lastFiveIncidentEnAttente.get(1);
-			bddIncident.update(aGerer, superhero, "En cour");
-			this.listIncidentEnAttente();
-			this.checkIncidentEnCour();
-			this.setLabels();
+			if(this.aGerer != null) {
+				JOptionPane.showMessageDialog(this, "Incident deja en cour terminez le !");
+			}
+			else {
+				loading.setVisible(true);
+				Thread runningSim = new Thread() {
+		             public void run() {
+		             	try {
+		             		takeIncidentOutThread(1);
+		             	}
+		             	finally {
+		             		afterLoading();
+						}
+		             }
+				 };
+				 runningSim.start();
+				 loadingSpinnerOn();
+			}
 		}
 		if(e.getSource() == btnEnAttente3) {
-			this.aGerer = this.lastFiveIncidentEnAttente.get(2);
-			bddIncident.update(aGerer, superhero, "En cour");
-			this.listIncidentEnAttente();
-			this.checkIncidentEnCour();
-			this.setLabels();
+			if(this.aGerer != null) {
+				JOptionPane.showMessageDialog(this, "Incident deja en cour terminez le !");
+			}
+			else {
+				loading.setVisible(true);
+				Thread runningSim = new Thread() {
+		             public void run() {
+		             	try {
+		             		takeIncidentOutThread(2);
+		             	}
+		             	finally {
+		             		afterLoading();
+						}
+		             }
+				 };
+				 runningSim.start();
+				 loadingSpinnerOn();
+			}
 		}
 		if(e.getSource() == btnEnAttente4) {
-			this.aGerer = this.lastFiveIncidentEnAttente.get(3);
-			bddIncident.update(aGerer, superhero, "En cour");
-			this.listIncidentEnAttente();
-			this.checkIncidentEnCour();
-			this.setLabels();
+			if(this.aGerer != null) {
+				JOptionPane.showMessageDialog(this, "Incident deja en cour terminez le !");
+			}
+			else {
+				loading.setVisible(true);
+				Thread runningSim = new Thread() {
+		             public void run() {
+		             	try {
+		             		takeIncidentOutThread(3);
+		             	}
+		             	finally {
+		             		afterLoading();
+						}
+		             }
+				 };
+				 runningSim.start();
+				 loadingSpinnerOn();
+			}
 		}
 		if(e.getSource() == btnEnAttente5) {
-			this.aGerer = this.lastFiveIncidentEnAttente.get(4);
-			bddIncident.update(aGerer, superhero, "En cour");
-			this.listIncidentEnAttente();
-			this.checkIncidentEnCour();
-			this.setLabels();
+			if(this.aGerer != null) {
+				JOptionPane.showMessageDialog(this, "Incident deja en cour terminez le !");
+			}
+			else {
+				loading.setVisible(true);
+				Thread runningSim = new Thread() {
+		             public void run() {
+		             	try {
+		             		takeIncidentOutThread(3);
+		             	}
+		             	finally {
+		             		afterLoading();
+						}
+		             }
+				 };
+				 runningSim.start();
+				 loadingSpinnerOn();
+			}
 		}
 		if(e.getSource() == termier) {
-			java.util.Date dt = new java.util.Date();
-			java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-			String currentTime = sdf.format(dt);
-			bddIncident.update(aGerer, "Résolu", currentTime);
-			this.aGerer = null;
-			this.listIncidentEnAttente();
-			this.checkIncidentEnCour();
-			this.checkNbIncidentMaitrise();
-			this.setLabels();
+			if(this.aGerer == null) {
+				JOptionPane.showMessageDialog(this, "Pas d'incident en cours !");
+			}
+			else {
+				loading.setVisible(true);
+				Thread runningSim = new Thread() {
+		             public void run() {
+		             	try {
+		             		incidentTermine();
+		             	}
+		             	finally {
+		             		afterLoading();
+						}
+		             }
+				 };
+				 runningSim.start();
+				 loadingSpinnerOn();
+			}
 		}
 		if(e.getSource()==acutaliser) {
-			listMaitrise();
-	        checkNbIncidentMaitrise();
-	        listIncidentEnAttente();
-	        checkIncidentEnCour();
-	        setLabels();
+			loading.setVisible(true);
+			Thread runningSim = new Thread() {
+	             public void run() {
+	             	try {
+	             		listMaitrise();
+	        	        checkNbIncidentMaitrise();
+	             	}
+	             	finally {
+	             		afterLoading();
+					}
+	             }
+			 };
+			 runningSim.start();
+			 loadingSpinnerOn();
+			
+	        
+		}
+		if(e.getSource() == logout) {
+			LoginFrame login = new LoginFrame();
+        	this.setVisible(false);
 		}
 	}
 
+//	@Override
+//	public void run() {
+//	}
 }

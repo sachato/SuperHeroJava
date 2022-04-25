@@ -23,9 +23,10 @@ public class LoginFrameVille extends Fenetre implements ActionListener {
     Font fancy = new Font("verdana" ,Font.BOLD | Font.ITALIC,28);
     JButton changeMode = new JButton("SuperHero");
     ImageIcon image = new ImageIcon("logoConnexion3.jpg");
+    ImageIcon gif = new ImageIcon("spinnn.gif");
+    JLabel loading = new JLabel();
     
-
-
+    
     public LoginFrameVille() {
     	super("Connection");
     	this.setVisible(true);
@@ -36,7 +37,7 @@ public class LoginFrameVille extends Fenetre implements ActionListener {
         setLocationAndSize();
         addComponentsToContainer();
         addActionEvent();
-
+        setVisibility();
     }
 
     public void setLayoutManager() {
@@ -50,13 +51,12 @@ public class LoginFrameVille extends Fenetre implements ActionListener {
         resetButton.setBounds(200, 300, 100, 30);
         changeMode.setBounds(200, 350, 100, 30);
         pasDeCompte.setBounds(50, 350, 120, 30);
-        
         titlefancy.setFont(fancy);
         titlefancy.setBounds(50, 100, 200, 30);
         imageLab.setIcon(image);
         imageLab.setBounds(43, 0, 370, 100);
-
-
+        loading.setIcon(gif);
+        loading.setBounds(135, 170, 150, 150);
     }
 
     public void addComponentsToContainer() {
@@ -68,6 +68,8 @@ public class LoginFrameVille extends Fenetre implements ActionListener {
         container.add(changeMode);
         container.add(imageLab);
         container.add(pasDeCompte);
+        container.add(loading);
+        container.setComponentZOrder(loading, 1);
     }
 
     public void addActionEvent() {
@@ -77,24 +79,57 @@ public class LoginFrameVille extends Fenetre implements ActionListener {
         pasDeCompte.addActionListener(this);
     }
 
+    
+    public void setVisibility() {
+    	loading.setVisible(false);	
+    }
+    
+    public void closeframe() {
+    	this.setVisible(false);
+    }
+
+    public void errorMessage() {
+    	loading.setVisible(false);
+    	JOptionPane.showMessageDialog(this, "Invalid Username or Password");
+    }
+
+
 
     @Override
     public void actionPerformed(ActionEvent e) {
         //Coding Part of LOGIN button
         if (e.getSource() == loginButton) {
-            String userText;
-            String pwdText;
-            userText = userTextField.getText();
-            VilleDao bdd = new VilleDao();
-            Ville ville = bdd.findByName(userText);
-            if (ville != null) {
-            	VilleFrame superHeroFrame = new VilleFrame(ville);
-                this.setVisible(false);
-            }
-            else {
-                JOptionPane.showMessageDialog(this, "Ville inconue");
-            }
-
+        	Thread runningSim = new Thread() {
+                public void run() {
+                	boolean signInOk = false;
+                	try {
+			            String userText;
+			            String pwdText;
+			            userText = userTextField.getText();
+			            VilleDao bdd = new VilleDao();
+			            Ville ville = bdd.findByName(userText);
+			            if (ville != null) {
+			            	VilleFrame superHeroFrame = new VilleFrame(ville);
+			            	signInOk = true;
+			                //this.setVisible(false);
+			            }
+			            else {
+			                //JOptionPane.showMessageDialog(this, "Ville inconue");
+			            	loading.setVisible(false);
+			            }
+                	}
+                	finally {
+                		if(signInOk) {
+                			closeframe();
+                		}
+                		else {
+                			errorMessage();
+                		}
+					}
+                }
+        	};
+        	runningSim.start();
+        	loading.setVisible(true);
         }
         //Coding Part of RESET button
         if (e.getSource() == resetButton) {

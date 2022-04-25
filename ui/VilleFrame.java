@@ -13,6 +13,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -49,7 +50,7 @@ public class VilleFrame extends Fenetre implements ActionListener, ItemListener{
 	
 		
 	Container container = getContentPane();
-	JLabel aujourdhui = new JLabel("Aujourd'hui");
+	JLabel aujourdhui = new JLabel("Incidents");
 	JLabel historique = new JLabel("10 derniers incident resolu");
 	JLabel declarationIncident = new JLabel("Déclaration Incident");
 	JLabel meilleur = new JLabel("Meilleurs Heros");
@@ -70,11 +71,14 @@ public class VilleFrame extends Fenetre implements ActionListener, ItemListener{
     JLabel contact = new JLabel("");
     JCheckBox noHero = new JCheckBox("Ne pas affecter de superHero");
     JButton enregistrer = new JButton("Enregistrer");
+    JButton logout = new JButton("logout");
+    ImageIcon gif = new ImageIcon("spinnn.gif");
+    JLabel loading = new JLabel();
     
 	public VilleFrame(Ville ville) {
 		super(ville.getNom());
 		this.ville = ville;
-		this.setVisible(true);
+		this.setVisible(false);
 		this.setBounds(10, 10, 370, 600);
 		this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     	this.setResizable(false);
@@ -86,6 +90,7 @@ public class VilleFrame extends Fenetre implements ActionListener, ItemListener{
         addActionEvent();
         checkMeilleurHero();
         setLabels();
+        this.setVisible(true);
 	}
 	
 	public void setComboBoxIncident() {
@@ -206,8 +211,10 @@ public class VilleFrame extends Fenetre implements ActionListener, ItemListener{
     	contact.setBounds(150, 230, 100, 30);
     	noHero.setBounds(50, 270, 200, 30);
     	enregistrer.setBounds(50, 310, 100, 30);
+    	logout.setBounds(220, 310, 100, 30);
     	separator2.setBounds(0, 350, 1000, 3);
-    	//historique.setBounds(25, 260, 1000, 30);
+    	loading.setIcon(gif);
+		loading.setBounds(135, 400, 150, 150);
     }
     
     public void addComponentsToContainer() {
@@ -232,15 +239,25 @@ public class VilleFrame extends Fenetre implements ActionListener, ItemListener{
         container.add(enregistrer);
         container.add(declarationIncident);
         container.add(separator2);
+        container.add(logout);
+        container.add(loading);
     }
     public void addActionEvent() {
     	incident.addItemListener(this);
     	superHero.addItemListener(this);
     	enregistrer.addActionListener(this);
     	noHero.addActionListener(this);
+    	logout.addActionListener(this);
     }
     
     public void checkMeilleurHero() {
+    	this.bestHero1 = 0;
+    	this.nbBestHero1 = 0;
+    	this.bestHero2 = 0;
+    	this.nbBestHero2 = 0;
+    	this.bestHero3 = 0;
+    	this.nbBestHero3 = 0;
+    	this.allIncidentResolu = null;
     	StatusIncidentDao bddIncident = new StatusIncidentDao();
     	this.allIncidentResolu = bddIncident.findByIdVilleEtStatus("Résolu", this.ville.getId());
     	HashMap<Integer, Integer> dic = new HashMap<Integer, Integer>();
@@ -320,14 +337,59 @@ public class VilleFrame extends Fenetre implements ActionListener, ItemListener{
     	catch (Exception e) {
 			System.out.println(e);
 		}
+    	loading.setVisible(false);
     }
     
+    public void enregistrerIncident(){
+    	IncidentDao bddIncident = new IncidentDao();
+		Incident incidento = bddIncident.findByName(incident.getSelectedItem().toString());
+		java.util.Date dt = new java.util.Date();
+		java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		String currentTime = sdf.format(dt);
+		if(noHero.isSelected()) {
+			StatusIncident status = new StatusIncident(0, 0, this.ville.getId(), incidento.getId(), "En attente", currentTime,(String) null);
+			StatusIncidentDao bddStatusIncident = new StatusIncidentDao();
+			bddStatusIncident.add(status);
+		}
+		else {
+			SuperHeroDao bddSuperHero = new SuperHeroDao();
+			SuperHero hero = bddSuperHero.findByName(superHero.getSelectedItem().toString());
+			StatusIncident status = new StatusIncident(0, hero.getId(), this.ville.getId(), incidento.getId(), "En cour", currentTime,(String) null);
+			StatusIncidentDao bddStatusIncident = new StatusIncidentDao();
+			bddStatusIncident.add(status);
+		}
+    }
+    
+    
+    public void afterLoading() {
+    	this.checkMeilleurHero();
+    	this.setLabels();
+    	loading.setVisible(false);
+    }
+
+    public void updateSuperComboBox(String item) {
+    	IncidentDao bddIncident = new IncidentDao();
+		Incident incident = bddIncident.findByName(item);
+		setComboBoxSuperHero(incident);
+    }
+
     public void itemStateChanged(ItemEvent e) {
     	if(e.getSource() == incident) {
     		if ((e.getStateChange() == ItemEvent.SELECTED)) {
-    			IncidentDao bddIncident = new IncidentDao();
-    			Incident incident = bddIncident.findByName(e.getItem().toString());
-    			setComboBoxSuperHero(incident);
+    			loading.setVisible(true);
+    			Thread runningSim = new Thread() {
+    	             public void run() {
+    	             	try {
+    	             		String item = e.getItem().toString();
+    	             		updateSuperComboBox(item);
+    	             	}
+    	             	finally {
+    	             		afterLoading();
+    					}
+    	             }
+    			 };
+    			 runningSim.start();
+    			
     		}
     	}
 	    
@@ -341,27 +403,24 @@ public class VilleFrame extends Fenetre implements ActionListener, ItemListener{
 	}
     
     
+    
 	@Override
 	public void actionPerformed(ActionEvent e) {
 		if(e.getSource() == enregistrer) {
-			IncidentDao bddIncident = new IncidentDao();
-			Incident incidento = bddIncident.findByName(incident.getSelectedItem().toString());
-			java.util.Date dt = new java.util.Date();
-			java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-			String currentTime = sdf.format(dt);
-			if(noHero.isSelected()) {
-				StatusIncident status = new StatusIncident(0, 0, this.ville.getId(), incidento.getId(), "En attente", currentTime,(String) null);
-				StatusIncidentDao bddStatusIncident = new StatusIncidentDao();
-				bddStatusIncident.add(status);
-			}
-			else {
-				SuperHeroDao bddSuperHero = new SuperHeroDao();
-				SuperHero hero = bddSuperHero.findByName(superHero.getSelectedItem().toString());
-				StatusIncident status = new StatusIncident(0, hero.getId(), this.ville.getId(), incidento.getId(), "En cour", currentTime,(String) null);
-				StatusIncidentDao bddStatusIncident = new StatusIncidentDao();
-				bddStatusIncident.add(status);
-			}
-			this.setLabels();
+			loading.setVisible(true);
+			Thread runningSim = new Thread() {
+	             public void run() {
+	             	try {
+	             		enregistrerIncident();
+	             	}
+	             	finally {
+	             		afterLoading();
+					}
+	             }
+			 };
+			 runningSim.start();
+			
+			
 		}
 		if(e.getSource() == noHero) {
 			if(noHero.isSelected()) {
@@ -372,6 +431,10 @@ public class VilleFrame extends Fenetre implements ActionListener, ItemListener{
 				superHero.setVisible(true);
 				contact.setVisible(true);
 			}
+		}
+		if(e.getSource() == logout) {
+			LoginFrameVille loginVille = new LoginFrameVille();
+        	this.setVisible(false);
 		}
 	}
 

@@ -9,6 +9,7 @@ import model.SuperHero;
 import services.Utils;
 
 import java.awt.*;
+import java.awt.desktop.SystemSleepEvent;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
@@ -18,7 +19,7 @@ import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.KeySpec;
 
-public class LoginFrame extends Fenetre implements ActionListener {
+public class LoginFrame extends Fenetre implements ActionListener{
 
     Container container = getContentPane();
     JLabel userLabel = new JLabel("Utilisateur");
@@ -34,6 +35,8 @@ public class LoginFrame extends Fenetre implements ActionListener {
     JLabel titlefancy = new JLabel("SuperHero");
     Font fancy = new Font("verdana" ,Font.BOLD | Font.ITALIC,28);
     ImageIcon image = new ImageIcon("logoConnexion3.jpg");
+    ImageIcon gif = new ImageIcon("spinnn.gif");
+    JLabel loading = new JLabel();
     
 
 
@@ -47,13 +50,13 @@ public class LoginFrame extends Fenetre implements ActionListener {
         setLocationAndSize();
         addComponentsToContainer();
         addActionEvent();
-
+        setVisibility();
     }
 
     public void setLayoutManager() {
         container.setLayout(null);
     }
-
+    
     public void setLocationAndSize() {
         userLabel.setBounds(50, 150, 100, 30);
         passwordLabel.setBounds(50, 220, 100, 30);
@@ -64,12 +67,12 @@ public class LoginFrame extends Fenetre implements ActionListener {
         resetButton.setBounds(200, 300, 100, 30);
         changeMode.setBounds(200, 350, 100, 30);
         pasDeCompte.setBounds(50, 350, 120, 30);
-        
+        loading.setIcon(gif);
         titlefancy.setFont(fancy);
         titlefancy.setBounds(50, 100, 200, 30);
         imageLab.setIcon(image);
         imageLab.setBounds(43, 0, 370, 100);
-
+        loading.setBounds(135, 410, 150, 150);
     }
 
     public void addComponentsToContainer() {
@@ -84,6 +87,8 @@ public class LoginFrame extends Fenetre implements ActionListener {
         container.add(changeMode);
         container.add(pasDeCompte);
         container.add(imageLab);
+        container.add(loading);
+        container.setComponentZOrder(loading, 1);
     }
 
     public void addActionEvent() {
@@ -93,36 +98,65 @@ public class LoginFrame extends Fenetre implements ActionListener {
         changeMode.addActionListener(this);
         pasDeCompte.addActionListener(this);
     }
+    
+    public void setVisibility() {
+    	loading.setVisible(false);	
+    }
+    
+    public void closeframe() {
+    	this.setVisible(false);
+    }
 
+    public void errorMessage() {
+    	loading.setVisible(false);
+    	JOptionPane.showMessageDialog(this, "Invalid Username or Password");
+    }
 
     @Override
     public void actionPerformed(ActionEvent e) {
         //Coding Part of LOGIN button
         if (e.getSource() == loginButton) {
-            String userText;
-            String pwdText;
-            userText = userTextField.getText();
-            pwdText = passwordField.getText();
-            SuperHeroDao bdd = new SuperHeroDao();
-            SuperHero hero = bdd.findByName(userText);
-            if (hero != null) {
-	            try {
-					if (userText.equalsIgnoreCase(hero.getNom()) && Utils.validatePassword(pwdText, hero.getPassword())) {
-					    SuperheroFrame superHeroFrame = new SuperheroFrame(hero);
-					    this.setVisible(false);
-					} else {
-					    JOptionPane.showMessageDialog(this, "Invalid Username or Password");
+        	Thread runningSim = new Thread() {
+                public void run() {
+                	boolean signInOk = false;
+                	try {
+	                    String userText;
+	                    String pwdText;
+	                    userText = userTextField.getText();
+	                    pwdText = passwordField.getText();
+	                    SuperHeroDao bdd = new SuperHeroDao();
+	                    SuperHero hero = bdd.findByName(userText);
+	                    if (hero != null) {
+	        	            try {
+	        					if (userText.equalsIgnoreCase(hero.getNom()) && Utils.validatePassword(pwdText, hero.getPassword())) {
+	        					    SuperheroFrame superHeroFrame = new SuperheroFrame(hero);
+	        					    signInOk = true;
+	        					   // this.setVisible(false);
+	        					} else {
+	        					    //JOptionPane.showMessageDialog(this, "Invalid Username or Password");
+	        					    loading.setVisible(false);
+	        					}
+	        				} catch (HeadlessException | NoSuchAlgorithmException | InvalidKeySpecException e1) {
+	        					// TODO Auto-generated catch block
+	        					e1.printStackTrace();
+	        				}
+	                    }
+	                    else {
+	                        //JOptionPane.showMessageDialog(this, "Invalid Username or Password");
+	                    }
+                	}
+                	finally {
+                		if(signInOk) {
+                			closeframe();
+                		}
+                		else {
+                			errorMessage();
+                		}
 					}
-				} catch (HeadlessException | NoSuchAlgorithmException | InvalidKeySpecException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-            }
-            else {
-                JOptionPane.showMessageDialog(this, "Invalid Username or Password");
-            }
-
-            
+                }
+            };
+            runningSim.start();
+        	loading.setVisible(true);
         }
         //Coding Part of RESET button
         if (e.getSource() == resetButton) {
@@ -148,5 +182,4 @@ public class LoginFrame extends Fenetre implements ActionListener {
         	this.setVisible(false);
         }
     }
-
 }
